@@ -19,13 +19,13 @@
 
 using System;
 using System.Diagnostics;
+using System.Threading.Tasks;
+using Strava.Common;
 
 namespace Strava.Authentication
 {
     /// <summary>
-    /// This class is used to start a local web server to receive a callback message from Strava. This message 
-    /// contains a auth token. This token is then used to obtain an access token.
-    /// Using this class requires admin privileges.
+    /// This class gives access to the user's access token through different methods.
     /// </summary>
     public class WebAuthentication : IAuthentication
     {
@@ -51,6 +51,8 @@ namespace Strava.Authentication
 
         /// <summary>
         /// Loads an access token asynchronously from the Strava servers. Invoking this method opens a web browser.
+        /// This method is used to start a local web server to receive a callback message from Strava.
+        /// Using this method requires admin privileges.
         /// </summary>
         /// <param name="clientId">The client id from your application (provided by Strava).</param>
         /// <param name="clientSecret">The client secret (provided by Strava).</param>
@@ -105,6 +107,26 @@ namespace Strava.Authentication
             Process process = new Process();
             process.StartInfo = new ProcessStartInfo(String.Format("{0}?client_id={1}&response_type=code&redirect_uri=http://localhost:{2}&scope={3}&approval_prompt=auto", url, clientId, callbackPort, scopeLevel));
             process.Start();
+        }
+
+        /// <summary>
+        /// Loads an access token asynchronously from the code returned by the Strava server.
+        /// </summary>
+        /// <param name="clientId">The client id from your application (provided by Strava).</param>
+        /// <param name="clientSecret">The client secret (provided by Strava).</param>
+        /// <param name="code">The code returned by the Strava server (after calling the https://www.strava.com/oauth/authorize url)</param>
+        public async Task GetTokenAsync(String clientId, String clientSecret, String code)
+        {
+            String url = String.Format("https://www.strava.com/oauth/token?client_id={0}&client_secret={1}&code={2}", clientId, clientSecret, code);
+            String json = await Http.WebRequest.SendPostAsync(new Uri(url));
+
+            AccessToken auth = Unmarshaller<AccessToken>.Unmarshal(json);
+
+            if (!String.IsNullOrEmpty(auth.Token))
+            {
+                AuthCode = code;
+                AccessToken = auth.Token;
+            }
         }
     }
 }
